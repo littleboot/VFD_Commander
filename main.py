@@ -71,7 +71,7 @@ class SerialTool:
         self.func_dropdown.grid(row=0, column=3, padx=5, pady=5)
         
         self.start_address_label = ttk.Label(self.modbus_frame, text="Parameter Pxx:")
-        self.start_address_label.grid(row=1, column=0, padx=5, pady=5)
+        self.start_address_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
         
         self.start_address_var = tk.StringVar(value="102")
         self.start_address_entry = ttk.Entry(self.modbus_frame, textvariable=self.start_address_var, width=20)
@@ -79,7 +79,7 @@ class SerialTool:
 
         # Data to Send
         self.data_label = ttk.Label(self.modbus_frame, text="Data (decimal):")
-        self.data_label.grid(row=2, column=0, padx=5, pady=5)
+        self.data_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
         
         self.data_var = tk.StringVar(value="10000")
         self.data_entry = ttk.Entry(self.modbus_frame, textvariable=self.data_var, width=20)
@@ -87,54 +87,54 @@ class SerialTool:
 
         # Send Button
         self.send_button = ttk.Button(self.modbus_frame, text="Send", command=self.send_modbus_packet)
-        self.send_button.grid(row=3, column=0, columnspan=1, pady=10)
+        self.send_button.grid(row=3, column=0, columnspan=4, padx=10, pady=10, sticky="ew")
+        
+        # Show Modbus TX checkbox
+        self.log_modbusTX_checkbox_var = tk.BooleanVar(value=False)
+        self.log_modbusTX_checkbox = ttk.Checkbutton(self.modbus_frame, text="Show Modbus transmit message in log", variable=self.log_modbusTX_checkbox_var)
+        self.log_modbusTX_checkbox.state(['!alternate'])  # Disable alternate state
+        self.log_modbusTX_checkbox.grid(row=1, column=2, padx=5, pady=5, columnspan=2, sticky="w")
+        
+        # Show Modbus RX checkbox
+        self.log_modbusRX_checkbox_var = tk.BooleanVar(value=False)
+        self.log_modbusRX_checkbox = ttk.Checkbutton(self.modbus_frame, text="Show Modbus receive message in log", variable=self.log_modbusRX_checkbox_var)
+        self.log_modbusRX_checkbox.state(['!alternate'])  # Disable alternate state
+        self.log_modbusRX_checkbox.grid(row=2, column=2, padx=5, pady=5, columnspan=2, sticky="w")
 
         ### Log frame ###
         self.log_frame = ttk.LabelFrame(self.root, text="Log: ▼")
-        self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="w")      
-        self.log_frame.bind("<Button-1>", self.toggle_log_frame) # Bind label press event to hide log frame
-        
-        # Show Modbus TX checkbox
-        self.log_modbusTX_checkbox = ttk.Checkbutton(self.log_frame, text="Show Modbus TX", variable=tk.BooleanVar(value=True))
-        self.log_modbusTX_checkbox.state(['!alternate']) # Disable alternate state
-        self.log_modbusTX_checkbox.grid(row=0, column=0, padx=0, pady=(0,5), sticky='w')
-        
-        # Show Modbus RX checkbox
-        self.log_modbusRX_checkbox = ttk.Checkbutton(self.log_frame, text="Show Modbus RX", variable=tk.BooleanVar(value=True))
-        self.log_modbusRX_checkbox.state(['!alternate']) # Disable alternate state
-        self.log_modbusRX_checkbox.grid(row=0, column=1, padx=0, pady=(0,5), sticky='w')
-        
-        # Log Window
-        self.logwindow = scrolledtext.ScrolledText(self.log_frame, width=60, height=10, state="disabled")
-        self.logwindow.grid(row=1, column=0, padx=10, pady=0, columnspan=2)
-        
-        # Clear log button
-        self.clearlog_button = ttk.Button(self.log_frame, text="Clear Log", command=self.clearlog_callback)
-        self.clearlog_button.grid(row=2, column=0, padx=0, pady=5)
-                
+        self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")      
+        self.log_frame.bind("<Button-1>", self.toggle_log_frame)  # Bind label press event to hide log frame
 
+        # Log Window with reduced height
+        self.logwindow = scrolledtext.ScrolledText(self.log_frame, state="disabled", height=5, width=60)  # Adjust height to reduce it
+        self.logwindow.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+
+        # Clear log button aligned to the middle
+        self.clearlog_button = ttk.Button(self.log_frame, text="Clear Log", command=self.clearlog_callback)
+        self.clearlog_button.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
 
         ### VFD Control Actions Frame ###
         self.vfd_frame = ttk.LabelFrame(self.root, text="VFD Control Actions")
         self.vfd_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
 
         # FWD Button
-        self.fwd_button = ttk.Button(self.vfd_frame, text="FWD", command=self.set_fwd_parameters)
+        self.fwd_button = ttk.Button(self.vfd_frame, text="FWD", command=self.fwd_button_callback)
         self.fwd_button.grid(row=0, column=0, padx=5, pady=5)
 
         # REV Button
-        self.fwd_button = ttk.Button(self.vfd_frame, text="REV", command=self.set_rev_parameters)
-        self.fwd_button.grid(row=0, column=1, padx=5, pady=5)
+        self.rev_button = ttk.Button(self.vfd_frame, text="REV", command=self.rev_button_callback)
+        self.rev_button.grid(row=0, column=1, padx=5, pady=5)
 
         # STOP Button
-        self.stop_button = ttk.Button(self.vfd_frame, text="STOP", command=self.set_stop_parameters)
+        self.stop_button = ttk.Button(self.vfd_frame, text="STOP", command=self.stop_button_callback)
         self.stop_button.grid(row=0, column=2, padx=5, pady=5)
 
         # Speed slider
         self.speed_label = ttk.Label(self.vfd_frame, text="Speed")
         self.speed_label.grid(row=1, column=0, padx=5, pady=5)
 
-        self.frequency_slider = ttk.Scale(self.vfd_frame, from_=10, to=50, orient="horizontal", command=self.set_speed_parameters)
+        self.frequency_slider = ttk.Scale(self.vfd_frame, from_=10, to=50, orient="horizontal", command=self.frequency_slider_callback)
         self.frequency_slider.grid(row=1, column=1, padx=5, pady=5)
 
         self.speedvalue = "10Hz"
@@ -146,16 +146,20 @@ class SerialTool:
         self.sensor_frame.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
         
         # Get Running status
-        self.test_button = ttk.Button(self.sensor_frame, text="Get Running-status", width=20, command=self.get_running_status)
-        self.test_button.grid(row=0, column=0, padx=5, pady=5)
+        self.get_running_status_button = ttk.Button(self.sensor_frame, text="Get Running-status", width=20, command=self.get_running_status_button_callback)
+        self.get_running_status_button.grid(row=0, column=0, padx=5, pady=5)
         
         # Get set frequency
-        self.test_button = ttk.Button(self.sensor_frame, text="Get set-frequency", width=20, command=self.get_set_frequency)
-        self.test_button.grid(row=1, column=0, padx=5, pady=5)
+        self.get_set_frequency_button = ttk.Button(self.sensor_frame, text="Get set-frequency", width=20, command=self.get_set_frequency_button_callback)
+        self.get_set_frequency_button.grid(row=1, column=0, padx=5, pady=5)
         
         # Get current frequency
-        self.test_button = ttk.Button(self.sensor_frame, text="Get current-frequency", width=20, command=self.get_current_frequency)
-        self.test_button.grid(row=2, column=0, padx=5, pady=5)
+        self.get_current_frequency_button = ttk.Button(self.sensor_frame, text="Get current-frequency", width=20, command=self.get_current_frequency_button_callback)
+        self.get_current_frequency_button.grid(row=2, column=0, padx=5, pady=5)
+        
+        # Get running current
+        self.get_running_current_button = ttk.Button(self.sensor_frame, text="Get running-current", width=20, command=self.get_running_current_button_callback)
+        self.get_running_current_button.grid(row=3, column=0, padx=5, pady=5)
 
 
     def refresh_com_ports(self):
@@ -216,7 +220,9 @@ class SerialTool:
 
             # Send packet via serial client
             self.client.socket.write(packet)
-            self.log_message(f"Sent    : {' '.join(format(x, '02X') for x in packet)}")
+            
+            if self.log_modbusTX_checkbox_var.get():
+                self.log_message(f"Sent    : {' '.join(format(x, '02X') for x in packet)}")
 
             # Determine expected response length based on function code
             if function_code == 0x06:
@@ -278,7 +284,9 @@ class SerialTool:
 
             # Log the structured response
             response_hex = ' '.join(format(x, '02X') for x in response)
-            self.log_message(f"Received: {response_hex}")
+            
+            if self.log_modbusRX_checkbox_var.get():
+                self.log_message(f"Received: {response_hex}")
             
             return response_structure
 
@@ -301,7 +309,7 @@ class SerialTool:
         if self.logwindow.winfo_viewable():  # If the log window is currently visible
             self.logwindow.grid_remove()      # Hide the log window
             self.clearlog_button.grid_remove() # Hide the clear log button
-            self.log_frame.config(height=20)    # Set the height to 0 (optional)
+            self.log_frame.config(height=25)    # Set the height
             self.log_frame.config(text="Log: ▲")
         else:
             self.logwindow.grid()              # Show the log window
@@ -310,34 +318,34 @@ class SerialTool:
             
         self.log_frame.update_idletasks()      # Refresh the layout
 
-    def set_fwd_parameters(self):
+    def fwd_button_callback(self):
         #  Modbus parameters: FWD action.
         # self.slave_var.set("8")                 # Set Slave Address (hex)
         self.func_var.set("0x06")  # Set Function Code
         self.start_address_var.set("103")        # Set Parameter Pxx
         self.data_var.set(self.binarystring_to_decimalstring("0b0001")) # Set Data (decimal)
-        self.log_message("FWD parameters set.")
+        self.log_message("Start drive in Forward (FWD) direction", color="green")
         self.send_modbus_packet()
     
-    def set_rev_parameters(self):
+    def rev_button_callback(self):
         #  Modbus parameters: REV action.
         # self.slave_var.set("8")
         self.func_var.set("0x06")
         self.start_address_var.set("103")
         self.data_var.set(self.binarystring_to_decimalstring("0b0011"))
-        self.log_message("REV parameters set.")
+        self.log_message("Start drive in Reverse (REV) direction", color="green")
         self.send_modbus_packet()
     
-    def set_stop_parameters(self):
+    def stop_button_callback(self):
         #  Modbus parameters: STOP action.
         # self.slave_var.set("8")
         self.func_var.set("0x06")
         self.start_address_var.set("103")
         self.data_var.set(self.binarystring_to_decimalstring("0b0000"))
-        self.log_message("STOP parameters set.")
+        self.log_message("Stop drive", color="green")
         self.send_modbus_packet()
     
-    def set_speed_parameters(self, event=None):
+    def frequency_slider_callback(self, event=None):
         #  Modbus parameters: SPEED.
         frequency = str(int(self.frequency_slider.get()))
 
@@ -349,7 +357,7 @@ class SerialTool:
         self.speedvalue_label["text"] = frequency + " Hz"
         self.send_modbus_packet()
         
-    def get_running_status(self):
+    def get_running_status_button_callback(self):
         # Send message to get running status
         # self.slave_var.set("8")                 # Set Slave Address (hex)
         self.func_var.set("0x03")  # Set Function Code
@@ -382,7 +390,7 @@ class SerialTool:
         else:
             self.log_message("invalid response", color="red")
         
-    def get_set_frequency(self):
+    def get_set_frequency_button_callback(self):
         # Send message to get set frequency
         # self.slave_var.set("8")                 # Set Slave Address (hex)
         self.func_var.set("0x03")  # Set Function Code
@@ -396,7 +404,7 @@ class SerialTool:
         else:
             self.log_message("invalid response", color="red")
     
-    def get_current_frequency(self):
+    def get_current_frequency_button_callback(self):
         # Send message to get set current output drive frequency
         # self.slave_var.set("8")
         self.func_var.set("0x03")
@@ -407,6 +415,20 @@ class SerialTool:
         if response:
             data = int(response.get("data")[0])
             self.log_message(f"Get Current-frequency: {int(data/100)} Hz", color="blue")
+        else:
+            self.log_message("invalid response", color="red")
+            
+    def get_running_current_button_callback(self):
+        # Get VFD running current
+        # self.slave_var.set("8")
+        self.func_var.set("0x03")
+        self.start_address_var.set("183")
+        self.data_var.set("1")
+        response = self.send_modbus_packet()
+        
+        if response:
+            data = float(response.get("data")[0])
+            self.log_message(f"Get Running-current: {data/10} A", color="blue")
         else:
             self.log_message("invalid response", color="red")
 
