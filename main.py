@@ -161,6 +161,9 @@ class SerialTool:
         self.get_running_current_button = ttk.Button(self.sensor_frame, text="Get running-current", width=20, command=self.get_running_current_button_callback)
         self.get_running_current_button.grid(row=3, column=0, padx=5, pady=5)
 
+        # Get running voltage
+        self.get_running_voltage_button = ttk.Button(self.sensor_frame, text="Get running-voltage", width=20, command=self.get_running_voltage_button_callback)
+        self.get_running_voltage_button.grid(row=4, column=0, padx=5, pady=5)
 
     def refresh_com_ports(self):
         ports = serial.tools.list_ports.comports()
@@ -429,6 +432,20 @@ class SerialTool:
         if response:
             data = float(response.get("data")[0])
             self.log_message(f"Get Running-current: {data/10} A", color="blue")
+        else:
+            self.log_message("invalid response", color="red")
+    
+    def get_running_voltage_button_callback(self):
+        # Get VFD running voltage
+        # self.slave_var.set("8")
+        self.func_var.set("0x03")
+        self.start_address_var.set("184")
+        self.data_var.set("1")
+        response = self.send_modbus_packet()
+        
+        if response:
+            data = float(response.get("data")[0])
+            self.log_message(f"Get Running-current: {data/10} V", color="blue")
         else:
             self.log_message("invalid response", color="red")
 
