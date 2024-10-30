@@ -26,7 +26,7 @@ class SerialTool:
         self.com_label = ttk.Label(self.com_frame, text="COM Port:")
         self.com_label.grid(row=0, column=0, padx=5, pady=5)
         
-        self.com_var = tk.StringVar()
+        self.com_var = tk.StringVar(value="COM15")
         self.com_dropdown = ttk.Combobox(self.com_frame, textvariable=self.com_var, width=10)
         self.com_dropdown.grid(row=0, column=1, padx=5, pady=5)
         self.refresh_com_ports()
@@ -91,18 +91,28 @@ class SerialTool:
 
         ### Log frame ###
         self.log_frame = ttk.LabelFrame(self.root, text="Log: ▼")
-        self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="w")      
+        self.log_frame.bind("<Button-1>", self.toggle_log_frame) # Bind label press event to hide log frame
+        
+        # Show Modbus TX checkbox
+        self.log_modbusTX_checkbox = ttk.Checkbutton(self.log_frame, text="Show Modbus TX", variable=tk.BooleanVar(value=True))
+        self.log_modbusTX_checkbox.state(['!alternate']) # Disable alternate state
+        self.log_modbusTX_checkbox.grid(row=0, column=0, padx=0, pady=(0,5), sticky='w')
+        
+        # Show Modbus RX checkbox
+        self.log_modbusRX_checkbox = ttk.Checkbutton(self.log_frame, text="Show Modbus RX", variable=tk.BooleanVar(value=True))
+        self.log_modbusRX_checkbox.state(['!alternate']) # Disable alternate state
+        self.log_modbusRX_checkbox.grid(row=0, column=1, padx=0, pady=(0,5), sticky='w')
         
         # Log Window
         self.logwindow = scrolledtext.ScrolledText(self.log_frame, width=60, height=10, state="disabled")
-        self.logwindow.grid(row=0, column=0, padx=10, pady=0)
+        self.logwindow.grid(row=1, column=0, padx=10, pady=0, columnspan=2)
         
         # Clear log button
         self.clearlog_button = ttk.Button(self.log_frame, text="Clear Log", command=self.clearlog_callback)
-        self.clearlog_button.grid(row=1, column=0, padx=0, pady=5)
+        self.clearlog_button.grid(row=2, column=0, padx=0, pady=5)
                 
-        # Bind label press event to hide log frame
-        self.log_frame.bind("<Button-1>", self.toggle_log_frame)
+
 
         ### VFD Control Actions Frame ###
         self.vfd_frame = ttk.LabelFrame(self.root, text="VFD Control Actions")
@@ -131,13 +141,21 @@ class SerialTool:
         self.speedvalue_label = ttk.Label(self.vfd_frame, text=self.speedvalue)
         self.speedvalue_label.grid(row=1, column=2, padx=5, pady=5)
         
-        ### VFD sensor data ###
-        self.sensor_frame = ttk.LabelFrame(self.root, text="VFD sensor data")
+        ### VFD Status feedback ###
+        self.sensor_frame = ttk.LabelFrame(self.root, text="VFD status feedback")
         self.sensor_frame.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
         
-        # get VFD set frequency
-        self.test_button = ttk.Button(self.sensor_frame, text="Get set-frequency", command=self.get_set_frequency)
+        # Get Running status
+        self.test_button = ttk.Button(self.sensor_frame, text="Get Running-status", width=20, command=self.get_running_status)
         self.test_button.grid(row=0, column=0, padx=5, pady=5)
+        
+        # Get set frequency
+        self.test_button = ttk.Button(self.sensor_frame, text="Get set-frequency", width=20, command=self.get_set_frequency)
+        self.test_button.grid(row=1, column=0, padx=5, pady=5)
+        
+        # Get current frequency
+        self.test_button = ttk.Button(self.sensor_frame, text="Get current-frequency", width=20, command=self.get_current_frequency)
+        self.test_button.grid(row=2, column=0, padx=5, pady=5)
 
 
     def refresh_com_ports(self):
@@ -327,10 +345,42 @@ class SerialTool:
         self.func_var.set("0x06")
         self.start_address_var.set("102")
         self.data_var.set(str(int(self.frequency_slider.get())*100))
-        self.log_message("speed set to: " + frequency)
+        self.log_message(f"Set Setpoint-frequency: {frequency} Hz", color="green")
         self.speedvalue_label["text"] = frequency + " Hz"
         self.send_modbus_packet()
         
+    def get_running_status(self):
+        # Send message to get running status
+        # self.slave_var.set("8")                 # Set Slave Address (hex)
+        self.func_var.set("0x03")  # Set Function Code
+        self.start_address_var.set("180")        # Set Parameter Pxx
+        self.data_var.set("1") # read single register
+        
+        response = self.send_modbus_packet()
+        if response:
+            data = response.get("data")[0]
+            
+            # self.log_message(data >> 0 & 1) #BIT0
+            # self.log_message(data >> 1 & 1) #BIT1
+            # self.log_message(data >> 2 & 1) #BIT2
+            # self.log_message(data >> 3 & 1) #BIT3
+            # self.log_message(data >> 4 & 1) #BIT4
+            # self.log_message(data >> 5 & 1) #BIT5
+            # self.log_message(data >> 6 & 1) #BIT6
+            # self.log_message(data >> 7 & 1) #BIT7
+            
+            if data & 0b111 == 0b111: # BIT0, BIT1 and BIT2 are HIGH (running)
+                self.log_message("Status   : Running", color="blue")
+            else:
+                self.log_message("Status   : Not running (Stopped)", color="blue")
+            
+            if data & (1 << 4) == (1 << 4): #Bit4 = HIGH; NOTE: manual sastates bit4-bit7 for direction status but only bit4 is used!
+                self.log_message("Direction: Reverse", color="blue")
+            else:
+                self.log_message("Direction: Forward", color="blue")
+            
+        else:
+            self.log_message("invalid response", color="red")
         
     def get_set_frequency(self):
         # Send message to get set frequency
@@ -342,22 +392,45 @@ class SerialTool:
         response = self.send_modbus_packet()
         if response:
             data = int(response.get("data")[0])
-            self.log_message( str(int(data/100)) + "Hz")
+            self.log_message(f"Get Setpoint-frequency: {int(data/100)} Hz", color="blue")
         else:
-            self.log_message("invalid response")
+            self.log_message("invalid response", color="red")
+    
+    def get_current_frequency(self):
+        # Send message to get set current output drive frequency
+        # self.slave_var.set("8")
+        self.func_var.set("0x03")
+        self.start_address_var.set("182")
+        self.data_var.set("1")
+        response = self.send_modbus_packet()
+        
+        if response:
+            data = int(response.get("data")[0])
+            self.log_message(f"Get Current-frequency: {int(data/100)} Hz", color="blue")
+        else:
+            self.log_message("invalid response", color="red")
 
 
-    def log_message(self, message):
+    def log_message(self, message, color="black"):
         # Get the current date and time
         now = datetime.datetime.now()
         # Format the timestamp as a string
-        # timestamp = now.strftime("%Y-%m-%d %H:%M:%S") # data and time
         timestamp = now.strftime("%H:%M:%S")
-        # Insert the timestamp and message into the log
+        
+        # Insert the timestamp in black
         self.logwindow.config(state="normal")
-        self.logwindow.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.logwindow.insert(tk.END, f"[{timestamp}] ", "black")
+        
+        # Create a unique tag name for each message
+        tag_name = f"color_{timestamp}_{color}"
+        self.logwindow.tag_configure(tag_name, foreground=color)
+        
+        # Insert the message with the unique color tag
+        self.logwindow.insert(tk.END, f"{message}\n", tag_name)
+        
         self.logwindow.config(state="disabled")
         self.logwindow.see(tk.END)
+
     
     def clearlog_callback(self):
         # Clear the contents of the log widget.
