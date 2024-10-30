@@ -4,6 +4,7 @@ import serial.tools.list_ports
 from pymodbus.client.serial import ModbusSerialClient
 from pymodbus.pdu import ExceptionResponse
 import struct
+import datetime
 
 class SerialTool:
     def __init__(self, root):
@@ -26,7 +27,7 @@ class SerialTool:
         self.com_label.grid(row=0, column=0, padx=5, pady=5)
         
         self.com_var = tk.StringVar()
-        self.com_dropdown = ttk.Combobox(self.com_frame, textvariable=self.com_var)
+        self.com_dropdown = ttk.Combobox(self.com_frame, textvariable=self.com_var, width=10)
         self.com_dropdown.grid(row=0, column=1, padx=5, pady=5)
         self.refresh_com_ports()
         
@@ -41,7 +42,7 @@ class SerialTool:
         self.baud_label.grid(row=1, column=0, padx=5, pady=5)
         
         self.baud_var = tk.StringVar(value="9600")
-        self.baud_entry = ttk.Entry(self.com_frame, textvariable=self.baud_var, width=10)
+        self.baud_entry = ttk.Entry(self.com_frame, textvariable=self.baud_var, width=13)
         self.baud_entry.grid(row=1, column=1, padx=5, pady=5)
 
         self.stop_bits_var = tk.StringVar(value="1")
@@ -57,7 +58,7 @@ class SerialTool:
         self.slave_label.grid(row=0, column=0, padx=5, pady=5)
         
         self.slave_var = tk.StringVar(value="8")
-        self.slave_entry = ttk.Entry(self.modbus_frame, textvariable=self.slave_var, width=10)
+        self.slave_entry = ttk.Entry(self.modbus_frame, textvariable=self.slave_var, width=20)
         self.slave_entry.grid(row=0, column=1, padx=5, pady=5)
         
         # Function Code with description in dropdown
@@ -73,7 +74,7 @@ class SerialTool:
         self.start_address_label.grid(row=1, column=0, padx=5, pady=5)
         
         self.start_address_var = tk.StringVar(value="102")
-        self.start_address_entry = ttk.Entry(self.modbus_frame, textvariable=self.start_address_var, width=10)
+        self.start_address_entry = ttk.Entry(self.modbus_frame, textvariable=self.start_address_var, width=20)
         self.start_address_entry.grid(row=1, column=1, padx=5, pady=5)
 
         # Data to Send
@@ -82,11 +83,11 @@ class SerialTool:
         
         self.data_var = tk.StringVar(value="10000")
         self.data_entry = ttk.Entry(self.modbus_frame, textvariable=self.data_var, width=20)
-        self.data_entry.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
+        self.data_entry.grid(row=2, column=1, columnspan=1, padx=5, pady=5)
 
         # Send Button
         self.send_button = ttk.Button(self.modbus_frame, text="Send", command=self.send_modbus_packet)
-        self.send_button.grid(row=3, column=0, columnspan=4, pady=10)
+        self.send_button.grid(row=3, column=0, columnspan=1, pady=10)
 
         ### Log Window ###
         self.log = scrolledtext.ScrolledText(self.root, width=60, height=10, state="disabled")
@@ -101,7 +102,7 @@ class SerialTool:
         self.fwd_button.grid(row=0, column=0, padx=5, pady=5)
 
         # REV Button
-        self.fwd_button = ttk.Button(self.vfd_frame, text="FWD", command=self.set_rev_parameters)
+        self.fwd_button = ttk.Button(self.vfd_frame, text="REV", command=self.set_rev_parameters)
         self.fwd_button.grid(row=0, column=1, padx=5, pady=5)
 
         # STOP Button
@@ -179,7 +180,7 @@ class SerialTool:
 
             # Send packet via serial client
             self.client.socket.write(packet)
-            self.log_message(f"Sent: {' '.join(format(x, '02X') for x in packet)}")
+            self.log_message(f"Sent    : {' '.join(format(x, '02X') for x in packet)}")
 
             # Read the response from the Modbus slave
             response = self.client.socket.read(8)  # Adjust byte count based on expected response
@@ -244,8 +245,14 @@ class SerialTool:
 
 
     def log_message(self, message):
+        # Get the current date and time
+        now = datetime.datetime.now()
+        # Format the timestamp as a string
+        # timestamp = now.strftime("%Y-%m-%d %H:%M:%S") # data and time
+        timestamp = now.strftime("%H:%M:%S")
+        # Insert the timestamp and message into the log
         self.log.config(state="normal")
-        self.log.insert(tk.END, message + "\n")
+        self.log.insert(tk.END, f"[{timestamp}] {message}\n")
         self.log.config(state="disabled")
         self.log.see(tk.END)
 
