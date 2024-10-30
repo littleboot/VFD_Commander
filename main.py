@@ -19,7 +19,7 @@ class SerialTool:
         self.setup_ui()
 
     def setup_ui(self):
-        # COM Port Section
+        ### COM Port Section ###
         self.com_frame = ttk.LabelFrame(self.root, text="Serial Connection")
         self.com_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
@@ -50,7 +50,7 @@ class SerialTool:
         self.stop_bits_dropdown = ttk.Combobox(self.com_frame, textvariable=self.stop_bits_var, values=["1", "1.5", "2"], width=5)
         self.stop_bits_dropdown.grid(row=1, column=3, padx=5, pady=5)
 
-        # Modbus Parameters
+        ### Modbus Parameters ###
         self.modbus_frame = ttk.LabelFrame(self.root, text="Modbus Settings")
         self.modbus_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
@@ -89,9 +89,17 @@ class SerialTool:
         self.send_button = ttk.Button(self.modbus_frame, text="Send", command=self.send_modbus_packet)
         self.send_button.grid(row=3, column=0, columnspan=1, pady=10)
 
-        ### Log Window ###
-        self.log = scrolledtext.ScrolledText(self.root, width=60, height=10, state="disabled")
-        self.log.grid(row=2, column=0, padx=10, pady=10)
+        ### Log frame ###
+        self.log_frame = ttk.LabelFrame(self.root, text="Log window")
+        self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        
+        # Log Window
+        self.log = scrolledtext.ScrolledText(self.log_frame, width=60, height=10, state="disabled")
+        self.log.grid(row=0, column=0, padx=10, pady=0)
+        
+        # Clear log button
+        self.clearlog_button = ttk.Button(self.log_frame, text="Clear Log", command=self.clearlog_callback)
+        self.clearlog_button.grid(row=1, column=0, padx=0, pady=5)
 
         ### VFD Control Actions Frame ###
         self.vfd_frame = ttk.LabelFrame(self.root, text="VFD Control Actions")
@@ -110,7 +118,6 @@ class SerialTool:
         self.stop_button.grid(row=0, column=2, padx=5, pady=5)
 
         # Speed slider
-        # Speed Label
         self.speed_label = ttk.Label(self.vfd_frame, text="Speed")
         self.speed_label.grid(row=1, column=0, padx=5, pady=5)
 
@@ -120,6 +127,14 @@ class SerialTool:
         self.speedvalue = "10Hz"
         self.speedvalue_label = ttk.Label(self.vfd_frame, text=self.speedvalue)
         self.speedvalue_label.grid(row=1, column=2, padx=5, pady=5)
+        
+        ### VFD sensor data ###
+        self.sensor_frame = ttk.LabelFrame(self.root, text="VFD sensor data")
+        self.sensor_frame.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
+        
+        # get VFD set frequency
+        self.test_button = ttk.Button(self.sensor_frame, text="Get set-frequency", command=self.get_set_frequency)
+        self.test_button.grid(row=0, column=0, padx=5, pady=5)
 
 
     def refresh_com_ports(self):
@@ -182,34 +197,69 @@ class SerialTool:
             self.client.socket.write(packet)
             self.log_message(f"Sent    : {' '.join(format(x, '02X') for x in packet)}")
 
-            # Read the response from the Modbus slave
-            response = self.client.socket.read(8)  # Adjust byte count based on expected response
-            if response:
-                # Separate CRC from the response for validation
-                response_without_crc = response[:-2]  # All bytes except the last two CRC bytes
-                received_crc = struct.unpack('<H', response[-2:])[0]  # Extract the CRC from last two bytes
-                calculated_crc = self.compute_crc16(response_without_crc)  # Calculate CRC of received data
-
-                # Check CRC validity
-                if received_crc != calculated_crc:
-                    self.log_message("CRC error: Invalid checksum in received packet.")
+            # Determine expected response length based on function code
+            if function_code == 0x06:
+                expected_length = 8  # Fixed length for function 0x06
+            elif function_code == 0x03:
+                # Read the first 3 bytes of the response to determine byte count
+                header = self.client.socket.read(3)  # Slave address, function code, byte count
+                if len(header) < 3:
+                    self.log_message("Error: Incomplete response header received.")
                     return None
 
-                # Parse response to structured packet if CRC is correct
-                response_structure = {}
-                response_structure["slave_address"], response_structure["function_code"], \
-                response_structure["data_address"], response_structure["data"], \
-                response_structure["crc"] = struct.unpack('>BBHHH', response)
+                # Unpack the header to get the byte count
+                slave_address, function_code, byte_count = struct.unpack('>BBB', header)
+                expected_length = 3 + byte_count + 2  # Header (3 bytes) + data bytes + CRC (2 bytes)
 
-                # Log the structured response
-                response_hex = ' '.join(format(x, '02X') for x in response)
-                self.log_message(f"Received: {response_hex}")
-                
-                return response_structure
+                # Read the remaining response bytes based on the expected length
+                response_body = self.client.socket.read(expected_length - 3)
+                if len(response_body) != (expected_length - 3):
+                    self.log_message("Error: Incomplete response body received.")
+                    return None
+
+                # Combine header and body
+                response = header + response_body
             else:
-                # Log timeout error
-                self.log_message("Timeout error: No response from slave.")
+                self.log_message("Unsupported function code or not implemented.")
                 return None
+
+            # For function 0x06, directly read the full expected length
+            if function_code == 0x06:
+                response = self.client.socket.read(expected_length)
+                if len(response) != expected_length:
+                    self.log_message("Error: Incomplete response body received.")
+                    return None
+
+            # Separate CRC for validation
+            response_without_crc = response[:-2]  # All except CRC bytes
+            received_crc = struct.unpack('<H', response[-2:])[0]
+            calculated_crc = self.compute_crc16(response_without_crc)
+
+            # Check CRC validity
+            if received_crc != calculated_crc:
+                self.log_message("CRC error: Invalid checksum in received packet.")
+                return None
+
+            # Parse response if CRC is correct
+            response_structure = {
+                "slave_address": slave_address,
+                "function_code": function_code
+            }
+
+            if function_code == 0x06:
+                # Unpack response fields for function code 0x06
+                response_structure["register_address"], response_structure["data"] = struct.unpack('>HH', response[2:6])
+            elif function_code == 0x03:
+                # For function 0x03, parse the data bytes based on byte count
+                response_structure["byte_count"] = byte_count
+                data_bytes = response[3:3 + byte_count]
+                response_structure["data"] = [struct.unpack('>H', data_bytes[i:i+2])[0] for i in range(0, len(data_bytes), 2)]
+
+            # Log the structured response
+            response_hex = ' '.join(format(x, '02X') for x in response)
+            self.log_message(f"Received: {response_hex}")
+            
+            return response_structure
 
         except ValueError:
             messagebox.showerror("Error", "Invalid input data.")
@@ -265,14 +315,19 @@ class SerialTool:
         self.send_modbus_packet()
         
         
-    def get_temperature(self):
-        # Send message to get tempearture.
+    def get_set_frequency(self):
+        # Send message to get set frequency
         # self.slave_var.set("8")                 # Set Slave Address (hex)
-        self.func_var.set("0x06")  # Set Function Code
-        self.start_address_var.set("185")        # Set Parameter Pxx
-        self.data_var.set("test") # Set Data (decimal)
-        self.log_message("temperature")
-        self.send_modbus_packet()
+        self.func_var.set("0x03")  # Set Function Code
+        self.start_address_var.set("181")        # Set Parameter Pxx
+        self.data_var.set("1") # read single register
+        
+        response = self.send_modbus_packet()
+        if response:
+            data = int(response.get("data")[0])
+            self.log_message( str(int(data/100)) + "Hz")
+        else:
+            self.log_message("invalid response")
 
 
     def log_message(self, message):
@@ -286,6 +341,12 @@ class SerialTool:
         self.log.insert(tk.END, f"[{timestamp}] {message}\n")
         self.log.config(state="disabled")
         self.log.see(tk.END)
+    
+    def clearlog_callback(self):
+        # Clear the contents of the log widget.
+        self.log.config(state="normal")  # enable editing
+        self.log.delete('1.0', 'end')   # delete all text in the widget
+        self.log.config(state="disabled")  # disable editing
 
 
 root = tk.Tk()
