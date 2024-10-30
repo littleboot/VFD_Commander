@@ -90,16 +90,19 @@ class SerialTool:
         self.send_button.grid(row=3, column=0, columnspan=1, pady=10)
 
         ### Log frame ###
-        self.log_frame = ttk.LabelFrame(self.root, text="Log window")
+        self.log_frame = ttk.LabelFrame(self.root, text="Log: ▼")
         self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
         
         # Log Window
-        self.log = scrolledtext.ScrolledText(self.log_frame, width=60, height=10, state="disabled")
-        self.log.grid(row=0, column=0, padx=10, pady=0)
+        self.logwindow = scrolledtext.ScrolledText(self.log_frame, width=60, height=10, state="disabled")
+        self.logwindow.grid(row=0, column=0, padx=10, pady=0)
         
         # Clear log button
         self.clearlog_button = ttk.Button(self.log_frame, text="Clear Log", command=self.clearlog_callback)
         self.clearlog_button.grid(row=1, column=0, padx=0, pady=5)
+                
+        # Bind label press event to hide log frame
+        self.log_frame.bind("<Button-1>", self.toggle_log_frame)
 
         ### VFD Control Actions Frame ###
         self.vfd_frame = ttk.LabelFrame(self.root, text="VFD Control Actions")
@@ -274,6 +277,20 @@ class SerialTool:
         decimal_int = int(binary_str, 2)# Use built-in int function with base 2 to convert binary to decimal
         decimal_str = str(decimal_int) # Convert the decimal integer to a string
         return decimal_str
+    
+    def toggle_log_frame(self, event=None):
+        # Toggle the visibility of the log frame contents and adjust frame height.
+        if self.logwindow.winfo_viewable():  # If the log window is currently visible
+            self.logwindow.grid_remove()      # Hide the log window
+            self.clearlog_button.grid_remove() # Hide the clear log button
+            self.log_frame.config(height=20)    # Set the height to 0 (optional)
+            self.log_frame.config(text="Log: ▲")
+        else:
+            self.logwindow.grid()              # Show the log window
+            self.clearlog_button.grid()        # Show the clear log button
+            self.log_frame.config(text="Log: ▼")
+            
+        self.log_frame.update_idletasks()      # Refresh the layout
 
     def set_fwd_parameters(self):
         #  Modbus parameters: FWD action.
@@ -337,16 +354,16 @@ class SerialTool:
         # timestamp = now.strftime("%Y-%m-%d %H:%M:%S") # data and time
         timestamp = now.strftime("%H:%M:%S")
         # Insert the timestamp and message into the log
-        self.log.config(state="normal")
-        self.log.insert(tk.END, f"[{timestamp}] {message}\n")
-        self.log.config(state="disabled")
-        self.log.see(tk.END)
+        self.logwindow.config(state="normal")
+        self.logwindow.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.logwindow.config(state="disabled")
+        self.logwindow.see(tk.END)
     
     def clearlog_callback(self):
         # Clear the contents of the log widget.
-        self.log.config(state="normal")  # enable editing
-        self.log.delete('1.0', 'end')   # delete all text in the widget
-        self.log.config(state="disabled")  # disable editing
+        self.logwindow.config(state="normal")  # enable editing
+        self.logwindow.delete('1.0', 'end')   # delete all text in the widget
+        self.logwindow.config(state="disabled")  # disable editing
 
 
 root = tk.Tk()
