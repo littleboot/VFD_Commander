@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, Scale
 import serial.tools.list_ports
 from pymodbus.client.serial import ModbusSerialClient
 from pymodbus.pdu import ExceptionResponse
@@ -88,9 +88,38 @@ class SerialTool:
         self.send_button = ttk.Button(self.modbus_frame, text="Send", command=self.send_modbus_packet)
         self.send_button.grid(row=3, column=0, columnspan=4, pady=10)
 
-        # Log Window
+        ### Log Window ###
         self.log = scrolledtext.ScrolledText(self.root, width=60, height=10, state="disabled")
         self.log.grid(row=2, column=0, padx=10, pady=10)
+
+        ### VFD Control Actions Frame ###
+        self.vfd_frame = ttk.LabelFrame(self.root, text="VFD Control Actions")
+        self.vfd_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+
+        # FWD Button
+        self.fwd_button = ttk.Button(self.vfd_frame, text="FWD", command=self.set_fwd_parameters)
+        self.fwd_button.grid(row=0, column=0, padx=5, pady=5)
+
+        # REV Button
+        self.fwd_button = ttk.Button(self.vfd_frame, text="FWD", command=self.set_rev_parameters)
+        self.fwd_button.grid(row=0, column=1, padx=5, pady=5)
+
+        # STOP Button
+        self.stop_button = ttk.Button(self.vfd_frame, text="STOP", command=self.set_stop_parameters)
+        self.stop_button.grid(row=0, column=2, padx=5, pady=5)
+
+        # Speed slider
+        # Speed Label
+        self.speed_label = ttk.Label(self.vfd_frame, text="Speed")
+        self.speed_label.grid(row=1, column=0, padx=5, pady=5)
+
+        self.frequency_slider = ttk.Scale(self.vfd_frame, from_=10, to=50, orient="horizontal", command=self.set_speed_parameters)
+        self.frequency_slider.grid(row=1, column=1, padx=5, pady=5)
+
+        self.speedvalue = "10Hz"
+        self.speedvalue_label = ttk.Label(self.vfd_frame, text=self.speedvalue)
+        self.speedvalue_label.grid(row=1, column=2, padx=5, pady=5)
+
 
     def refresh_com_ports(self):
         ports = serial.tools.list_ports.comports()
@@ -150,7 +179,7 @@ class SerialTool:
 
             # Send packet via serial client
             self.client.socket.write(packet)
-            self.log_message(f"Sent    : {' '.join(format(x, '02X') for x in packet)}")
+            self.log_message(f"Sent: {' '.join(format(x, '02X') for x in packet)}")
 
             # Read the response from the Modbus slave
             response = self.client.socket.read(8)  # Adjust byte count based on expected response
@@ -167,12 +196,59 @@ class SerialTool:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+    @staticmethod
+    def binarystring_to_decimalstring(binary_str):
+        binary_str = binary_str[2:] # Remove the "0b" prefix from the binary string
+        decimal_int = int(binary_str, 2)# Use built-in int function with base 2 to convert binary to decimal
+        decimal_str = str(decimal_int) # Convert the decimal integer to a string
+        return decimal_str
+
+    def set_fwd_parameters(self):
+        #  Modbus parameters: FWD action.
+        # self.slave_var.set("8")                 # Set Slave Address (hex)
+        self.func_var.set("0x06")  # Set Function Code
+        self.start_address_var.set("103")        # Set Parameter Pxx
+        self.data_var.set(self.binarystring_to_decimalstring("0b0001")) # Set Data (decimal)
+        self.log_message("FWD parameters set.")
+        self.send_modbus_packet()
+    
+    def set_rev_parameters(self):
+        #  Modbus parameters: REV action.
+        # self.slave_var.set("8")
+        self.func_var.set("0x06")
+        self.start_address_var.set("103")
+        self.data_var.set(self.binarystring_to_decimalstring("0b0011"))
+        self.log_message("REV parameters set.")
+        self.send_modbus_packet()
+    
+    def set_stop_parameters(self):
+        #  Modbus parameters: STOP action.
+        # self.slave_var.set("8")
+        self.func_var.set("0x06")
+        self.start_address_var.set("103")
+        self.data_var.set(self.binarystring_to_decimalstring("0b0000"))
+        self.log_message("STOP parameters set.")
+        self.send_modbus_packet()
+    
+    def set_speed_parameters(self, event=None):
+        #  Modbus parameters: SPEED.
+        frequency = str(int(self.frequency_slider.get()))
+
+        # self.slave_var.set("8")
+        self.func_var.set("0x06")
+        self.start_address_var.set("102")
+        self.data_var.set(str(int(self.frequency_slider.get())*100))
+        self.log_message("speed set to: " + frequency)
+        self.speedvalue_label["text"] = frequency + " Hz"
+        self.send_modbus_packet()
+
 
     def log_message(self, message):
         self.log.config(state="normal")
         self.log.insert(tk.END, message + "\n")
         self.log.config(state="disabled")
         self.log.see(tk.END)
+
 
 root = tk.Tk()
 app = SerialTool(root)
