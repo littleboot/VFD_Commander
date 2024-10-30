@@ -1,3 +1,10 @@
+# 
+#
+# Not implemented:
+# - P186 [Setting pressure ] Water pressure setting for constant pressure VFD mode
+# - P187 [Feedback pressure] Water pressure feedback for constant pressure VFD mode
+#
+
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, Scale
 import serial.tools.list_ports
@@ -153,9 +160,9 @@ class SerialTool:
         self.get_set_frequency_button = ttk.Button(self.sensor_frame, text="Get set-frequency", width=20, command=self.get_set_frequency_button_callback)
         self.get_set_frequency_button.grid(row=1, column=0, padx=5, pady=5)
         
-        # Get current frequency
-        self.get_current_frequency_button = ttk.Button(self.sensor_frame, text="Get current-frequency", width=20, command=self.get_current_frequency_button_callback)
-        self.get_current_frequency_button.grid(row=2, column=0, padx=5, pady=5)
+        # Get actual frequency
+        self.get_actual_frequency_button = ttk.Button(self.sensor_frame, text="Get actual-frequency", width=20, command=self.get_actual_frequency_button_callback)
+        self.get_actual_frequency_button.grid(row=2, column=0, padx=5, pady=5)
         
         # Get running current
         self.get_running_current_button = ttk.Button(self.sensor_frame, text="Get running-current", width=20, command=self.get_running_current_button_callback)
@@ -164,6 +171,11 @@ class SerialTool:
         # Get running voltage
         self.get_running_voltage_button = ttk.Button(self.sensor_frame, text="Get running-voltage", width=20, command=self.get_running_voltage_button_callback)
         self.get_running_voltage_button.grid(row=4, column=0, padx=5, pady=5)
+        
+        # Get Temperature of the VFD
+        self.get_temperature_vfd_button = ttk.Button(self.sensor_frame, text="Get VFD Temperature", width=20, command=self.get_temperature_vfd_button_callback)
+        self.get_temperature_vfd_button.grid(row=5, column=0, padx=5, pady=5)
+
 
     def refresh_com_ports(self):
         ports = serial.tools.list_ports.comports()
@@ -322,8 +334,7 @@ class SerialTool:
         self.log_frame.update_idletasks()      # Refresh the layout
 
     def fwd_button_callback(self):
-        #  Modbus parameters: FWD action.
-        # self.slave_var.set("8")                 # Set Slave Address (hex)
+        # [P103] - FWD action.
         self.func_var.set("0x06")  # Set Function Code
         self.start_address_var.set("103")        # Set Parameter Pxx
         self.data_var.set(self.binarystring_to_decimalstring("0b0001")) # Set Data (decimal)
@@ -331,8 +342,7 @@ class SerialTool:
         self.send_modbus_packet()
     
     def rev_button_callback(self):
-        #  Modbus parameters: REV action.
-        # self.slave_var.set("8")
+        # [P103] - REV action.
         self.func_var.set("0x06")
         self.start_address_var.set("103")
         self.data_var.set(self.binarystring_to_decimalstring("0b0011"))
@@ -340,8 +350,7 @@ class SerialTool:
         self.send_modbus_packet()
     
     def stop_button_callback(self):
-        #  Modbus parameters: STOP action.
-        # self.slave_var.set("8")
+        # [P103] - STOP action.
         self.func_var.set("0x06")
         self.start_address_var.set("103")
         self.data_var.set(self.binarystring_to_decimalstring("0b0000"))
@@ -349,10 +358,9 @@ class SerialTool:
         self.send_modbus_packet()
     
     def frequency_slider_callback(self, event=None):
-        #  Modbus parameters: SPEED.
+        # [P102] - SPEED.
         frequency = str(int(self.frequency_slider.get()))
 
-        # self.slave_var.set("8")
         self.func_var.set("0x06")
         self.start_address_var.set("102")
         self.data_var.set(str(int(self.frequency_slider.get())*100))
@@ -361,8 +369,7 @@ class SerialTool:
         self.send_modbus_packet()
         
     def get_running_status_button_callback(self):
-        # Send message to get running status
-        # self.slave_var.set("8")                 # Set Slave Address (hex)
+        # [P180] - Get running status
         self.func_var.set("0x03")  # Set Function Code
         self.start_address_var.set("180")        # Set Parameter Pxx
         self.data_var.set("1") # read single register
@@ -394,8 +401,7 @@ class SerialTool:
             self.log_message("invalid response", color="red")
         
     def get_set_frequency_button_callback(self):
-        # Send message to get set frequency
-        # self.slave_var.set("8")                 # Set Slave Address (hex)
+        # [P103] - Get setpoint frequency
         self.func_var.set("0x03")  # Set Function Code
         self.start_address_var.set("181")        # Set Parameter Pxx
         self.data_var.set("1") # read single register
@@ -407,9 +413,8 @@ class SerialTool:
         else:
             self.log_message("invalid response", color="red")
     
-    def get_current_frequency_button_callback(self):
-        # Send message to get set current output drive frequency
-        # self.slave_var.set("8")
+    def get_actual_frequency_button_callback(self):
+        # [P182] - Get actual running frequency
         self.func_var.set("0x03")
         self.start_address_var.set("182")
         self.data_var.set("1")
@@ -417,13 +422,12 @@ class SerialTool:
         
         if response:
             data = int(response.get("data")[0])
-            self.log_message(f"Get Current-frequency: {int(data/100)} Hz", color="blue")
+            self.log_message(f"Get Actual-frequency: {int(data/100)} Hz", color="blue")
         else:
             self.log_message("invalid response", color="red")
             
     def get_running_current_button_callback(self):
-        # Get VFD running current
-        # self.slave_var.set("8")
+        # [P183] - Get VFD output running current
         self.func_var.set("0x03")
         self.start_address_var.set("183")
         self.data_var.set("1")
@@ -436,8 +440,7 @@ class SerialTool:
             self.log_message("invalid response", color="red")
     
     def get_running_voltage_button_callback(self):
-        # Get VFD running voltage
-        # self.slave_var.set("8")
+        # [P184] - Get VFD output running voltage
         self.func_var.set("0x03")
         self.start_address_var.set("184")
         self.data_var.set("1")
@@ -445,7 +448,20 @@ class SerialTool:
         
         if response:
             data = float(response.get("data")[0])
-            self.log_message(f"Get Running-current: {data/10} V", color="blue")
+            self.log_message(f"Get Running-voltage: {data/10} V", color="blue")
+        else:
+            self.log_message("invalid response", color="red")
+            
+    def get_temperature_vfd_button_callback(self):
+        # [P185] - Get VFD internal temperature
+        self.func_var.set("0x03")
+        self.start_address_var.set("185")
+        self.data_var.set("1")
+        response = self.send_modbus_packet()
+        
+        if response:
+            data = float(response.get("data")[0])
+            self.log_message(f"Get Temperature-VFD: {data} °C", color="blue")
         else:
             self.log_message("invalid response", color="red")
 
