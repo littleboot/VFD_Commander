@@ -176,6 +176,9 @@ class SerialTool:
         self.get_temperature_vfd_button = ttk.Button(self.sensor_frame, text="Get VFD Temperature", width=20, command=self.get_temperature_vfd_button_callback)
         self.get_temperature_vfd_button.grid(row=5, column=0, padx=5, pady=5)
 
+        # Get input terminals status
+        self.get_temperature_vfd_button = ttk.Button(self.sensor_frame, text="Get X0-X3 input state", width=20, command=self.get_input_terminal_status_callback)
+        self.get_temperature_vfd_button.grid(row=6, column=0, padx=5, pady=5)
 
     def refresh_com_ports(self):
         ports = serial.tools.list_ports.comports()
@@ -462,6 +465,21 @@ class SerialTool:
         if response:
             data = float(response.get("data")[0])
             self.log_message(f"Get Temperature-VFD: {data} °C", color="blue")
+        else:
+            self.log_message("invalid response", color="red")
+    
+    # [P185], [P186], [P187] - special VFD mode, not implemented
+    
+    def get_input_terminal_status_callback(self):
+        # [P188] - Feedback external terminal input status
+        self.func_var.set("0x03")
+        self.start_address_var.set("188")
+        self.data_var.set("1")
+        response = self.send_modbus_packet()
+        
+        if response:
+            x = response.get("data")[0]
+            self.log_message(f"X0={x >> 0 & 1} X1={x >> 1 & 1} X2={x >> 2 & 1} X3={x >> 3 & 1} (0=Open 1=GND)", color="blue")                
         else:
             self.log_message("invalid response", color="red")
 
