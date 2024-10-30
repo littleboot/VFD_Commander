@@ -164,13 +164,13 @@ class SerialTool:
     def send_modbus_packet(self):
         if not self.connected:
             messagebox.showerror("Error", "Not connected to any COM port.")
-            return
-        
+            return None
+
         try:
             # Parse user inputs
             slave_address = int(self.slave_var.get(), 16)  # Convert hex string to integer
             function_code = int(self.func_var.get().split()[0], 16)  # Get function code integer from dropdown
-            start_address = int(self.start_address_var.get()) + 40000 # parameter address offset
+            start_address = int(self.start_address_var.get()) + 40000  # Parameter address offset
             data = int(self.data_var.get())
 
             # Create Modbus packet without CRC
@@ -185,17 +185,38 @@ class SerialTool:
             # Read the response from the Modbus slave
             response = self.client.socket.read(8)  # Adjust byte count based on expected response
             if response:
-                # Log the response
+                # Separate CRC from the response for validation
+                response_without_crc = response[:-2]  # All bytes except the last two CRC bytes
+                received_crc = struct.unpack('<H', response[-2:])[0]  # Extract the CRC from last two bytes
+                calculated_crc = self.compute_crc16(response_without_crc)  # Calculate CRC of received data
+
+                # Check CRC validity
+                if received_crc != calculated_crc:
+                    self.log_message("CRC error: Invalid checksum in received packet.")
+                    return None
+
+                # Parse response to structured packet if CRC is correct
+                response_structure = {}
+                response_structure["slave_address"], response_structure["function_code"], \
+                response_structure["data_address"], response_structure["data"], \
+                response_structure["crc"] = struct.unpack('>BBHHH', response)
+
+                # Log the structured response
                 response_hex = ' '.join(format(x, '02X') for x in response)
                 self.log_message(f"Received: {response_hex}")
+                
+                return response_structure
             else:
                 # Log timeout error
                 self.log_message("Timeout error: No response from slave.")
+                return None
 
         except ValueError:
             messagebox.showerror("Error", "Invalid input data.")
+            return None
         except Exception as e:
             messagebox.showerror("Error", str(e))
+            return None
 
     @staticmethod
     def binarystring_to_decimalstring(binary_str):
@@ -241,6 +262,16 @@ class SerialTool:
         self.data_var.set(str(int(self.frequency_slider.get())*100))
         self.log_message("speed set to: " + frequency)
         self.speedvalue_label["text"] = frequency + " Hz"
+        self.send_modbus_packet()
+        
+        
+    def get_temperature(self):
+        # Send message to get tempearture.
+        # self.slave_var.set("8")                 # Set Slave Address (hex)
+        self.func_var.set("0x06")  # Set Function Code
+        self.start_address_var.set("185")        # Set Parameter Pxx
+        self.data_var.set("test") # Set Data (decimal)
+        self.log_message("temperature")
         self.send_modbus_packet()
 
 
