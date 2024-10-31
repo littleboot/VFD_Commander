@@ -12,6 +12,7 @@ from pymodbus.client.serial import ModbusSerialClient
 from pymodbus.pdu import ExceptionResponse
 import struct
 import datetime
+import ttkthemes
 
 # define INT16_MAX
 INT16_MAX = 2**16 - 1
@@ -19,7 +20,11 @@ INT16_MAX = 2**16 - 1
 class SerialTool:
     def __init__(self, root):
         self.root = root
-        self.root.title("Serial Modbus RTU Tool")
+        self.root.title("VFD Commander")
+        
+        # Set the dark mode theme
+        self.style = ttkthemes.ThemedStyle()
+        self.style.set_theme("breeze") # dark: equilux
         
         # Serial connection variables
         self.client = None
