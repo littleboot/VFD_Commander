@@ -145,7 +145,7 @@ class SerialTool:
         self.speed_label = ttk.Label(self.vfd_frame, text="Speed")
         self.speed_label.grid(row=1, column=0, padx=5, pady=5)
 
-        self.frequency_slider = ttk.Scale(self.vfd_frame, from_=10, to=50, orient="horizontal", command=self.frequency_slider_callback)
+        self.frequency_slider = ttk.Scale(self.vfd_frame, from_=5, to=50, orient="horizontal", command=self.frequency_slider_callback)
         self.frequency_slider.grid(row=1, column=1, padx=5, pady=5)
 
         self.speedvalue = "10Hz"
