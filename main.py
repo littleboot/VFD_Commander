@@ -13,6 +13,9 @@ from pymodbus.pdu import ExceptionResponse
 import struct
 import datetime
 
+# define INT16_MAX
+INT16_MAX = 2**16 - 1
+
 class SerialTool:
     def __init__(self, root):
         self.root = root
@@ -58,8 +61,9 @@ class SerialTool:
         self.stop_bits_dropdown.grid(row=1, column=3, padx=5, pady=5)
 
         ### Modbus Parameters ###
-        self.modbus_frame = ttk.LabelFrame(self.root, text="Modbus Settings")
+        self.modbus_frame = ttk.LabelFrame(self.root, text="Modbus Settings: ▼")
         self.modbus_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+        self.modbus_frame.bind("<Button-1>", self.toggle_modbus_frame)
 
         self.slave_label = ttk.Label(self.modbus_frame, text="Slave Address (hex):")
         self.slave_label.grid(row=0, column=0, padx=5, pady=5)
@@ -80,9 +84,9 @@ class SerialTool:
         self.start_address_label = ttk.Label(self.modbus_frame, text="Parameter Pxx:")
         self.start_address_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
         
-        self.start_address_var = tk.StringVar(value="102")
-        self.start_address_entry = ttk.Entry(self.modbus_frame, textvariable=self.start_address_var, width=20)
-        self.start_address_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.start_address_var = tk.IntVar(value=102)  # use IntVar for integer values
+        self.start_address_spinbox = ttk.Spinbox(self.modbus_frame, textvariable=self.start_address_var, from_=0, to=INT16_MAX, increment=1, width=18)  # create spinbox with range 0-65535 and increment of 1
+        self.start_address_spinbox.grid(row=1, column=1, padx=5, pady=5)
 
         # Data to Send
         self.data_label = ttk.Label(self.modbus_frame, text="Data (decimal):")
@@ -177,8 +181,12 @@ class SerialTool:
         self.get_temperature_vfd_button.grid(row=5, column=0, padx=5, pady=5)
 
         # Get input terminals status
-        self.get_temperature_vfd_button = ttk.Button(self.sensor_frame, text="Get X0-X3 input state", width=20, command=self.get_input_terminal_status_callback)
-        self.get_temperature_vfd_button.grid(row=6, column=0, padx=5, pady=5)
+        self.get_input_terminal_button = ttk.Button(self.sensor_frame, text="Get X0-X3 input state", width=20, command=self.get_input_terminal_status_callback)
+        self.get_input_terminal_button.grid(row=6, column=0, padx=5, pady=5)
+        
+        # Get fault alarms status
+        self.get_fault_alarms_button = ttk.Button(self.sensor_frame, text="Get fault alarms", width=20, command=self.get_fault_alarms_callback)
+        self.get_fault_alarms_button.grid(row=7, column=0, padx=5, pady=5)
 
     def refresh_com_ports(self):
         ports = serial.tools.list_ports.comports()
@@ -332,9 +340,39 @@ class SerialTool:
         else:
             self.logwindow.grid()              # Show the log window
             self.clearlog_button.grid()        # Show the clear log button
-            self.log_frame.config(text="Log: ▼")
-            
+            self.log_frame.config(text="Log: ▼")     
         self.log_frame.update_idletasks()      # Refresh the layout
+    
+    def toggle_modbus_frame(self, event=None):
+        # Toggle the visibility of the log frame contents and adjust frame height.
+        if self.slave_label.winfo_viewable():  # If the modbus window is currently visible (use one of the components to determine this)
+            self.slave_label.grid_remove()
+            self.slave_entry.grid_remove()
+            self.func_label.grid_remove()
+            self.func_dropdown.grid_remove()
+            self.start_address_label.grid_remove()
+            self.start_address_spinbox.grid_remove()
+            self.data_label.grid_remove()
+            self.data_entry.grid_remove()
+            self.send_button.grid_remove()
+            self.log_modbusTX_checkbox.grid_remove()
+            self.log_modbusRX_checkbox.grid_remove()
+            self.modbus_frame.config(height=25)
+            self.modbus_frame.config(text="Modbus Settings: ▲")
+        else:
+            self.slave_label.grid()
+            self.slave_entry.grid()
+            self.func_label.grid()
+            self.func_dropdown.grid()
+            self.start_address_label.grid()
+            self.start_address_spinbox.grid()
+            self.data_label.grid()
+            self.data_entry.grid()
+            self.send_button.grid()
+            self.log_modbusTX_checkbox.grid()
+            self.log_modbusRX_checkbox.grid()
+            self.modbus_frame.config(text="Modbus Settings: ▼")     
+        self.modbus_frame.update_idletasks()      # Refresh the layout
 
     def fwd_button_callback(self):
         # [P103] - FWD action.
@@ -469,7 +507,7 @@ class SerialTool:
             self.log_message("invalid response", color="red")
     
     # [P185], [P186], [P187] - special VFD mode, not implemented
-    
+        
     def get_input_terminal_status_callback(self):
         # [P188] - Feedback external terminal input status
         self.func_var.set("0x03")
@@ -483,6 +521,18 @@ class SerialTool:
         else:
             self.log_message("invalid response", color="red")
 
+    def get_fault_alarms_callback(self):
+        # [P188] - Feedback external terminal input status
+        self.func_var.set("0x03")
+        self.start_address_var.set("189")
+        self.data_var.set("1")
+        response = self.send_modbus_packet()
+        
+        if response:
+            x = response.get("data")[0]
+            self.log_message(f"{bin(x)}", color="blue")                
+        else:
+            self.log_message("invalid response", color="red")
 
     def log_message(self, message, color="black"):
         # Get the current date and time
