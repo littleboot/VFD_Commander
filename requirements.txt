@@ -1,0 +1,5 @@
+pymodbus==3.7.4
+pyserial==3.5
+pywinstyles==1.8
+sv_ttk==2.6.0
+ttkthemes==3.2.2
